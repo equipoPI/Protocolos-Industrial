@@ -1,0 +1,10 @@
+# Syntax Coloring Map For ModbusUDP
+
+# Datatypes (KEYWORD1)
+ModbusUDP       KEYWORD1
+
+# Methods and Functions (KEYWORD2)
+config          KEYWORD2
+task            KEYWORD2
+
+# Constants (LITERAL1)

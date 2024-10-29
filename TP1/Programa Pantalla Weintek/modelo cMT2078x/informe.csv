@@ -1,0 +1,2 @@
+﻿Nivel,Categoría,Ventana,ID de objeto,Tipo de objeto,Mensaje,Enlace
+Advertencia,No soportado,Global,,,Las funciones de macro [FindDataSampling * / FindEventLog *] no se admiten en la serie cMT / cMT X.,https://dl.weintek.com/public/Document/UM0/UM020007E_Notes_on_Upgrading_EasyBuilder_Pro_Project_eng.pdf#Unsupport_Macro
