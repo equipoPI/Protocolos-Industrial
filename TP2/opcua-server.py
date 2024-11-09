@@ -6,7 +6,7 @@ import random #esto lo vamos a reemplazar con las variables q vamos a sensar
 async def run_opcua_server():
     server = Server()
     #configura el endpoint del servidor. Es el punto de conexión donde los clientes se van a comunicar
-    server.set_endpoint("opc.tcp://192.168.0.138:4840/freeopcua/server/")
+    server.set_endpoint("opc.tcp://192.198.0.150:4840/freeopcua/server/")
     #espacio de nombre unico del servidor para distinguirlo de otros servidores OPC UA
     uri = "http://example.org"
     idx = server.register_namespace(uri)
