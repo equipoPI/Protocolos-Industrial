@@ -1,7 +1,8 @@
 from opcua import Client
 import time
 
-url = "opc.tcp://192.168.0.138:4840"
+#se debe de colocal la ip del Server OPC UA al que se quiere conectar 
+url = "opc.tcp://192.168.0.150:4840"
 
 client = Client(url)
 
