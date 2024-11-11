@@ -1,6 +1,3 @@
-from opcua import Client
-import time
-import paho.mqtt.client as mqtt
 
 '''
 Para iniciar el broker mosquito se necesita introducir el codigo:
@@ -10,35 +7,52 @@ mosquitto_sub -h ip_broker -t nombre_topico
 
 mosquitto_pub -h ip_broker -t nombre_topico -m valor/dato
 '''
+from opcua import Client
+import time
+import paho.mqtt.client as mqtt
 
-#se debe de colocal la ip del Server OPC UA al que se quiere conectar 
+# Función de callback para la conexión con el broker MQTT
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Conectado correctamente al broker MQTT")
+    else:
+        print("Fallo la conexión. Código de resultado:", rc)
+
+# Se debe colocar la IP del Server OPC UA al que se quiere conectar
 url = "opc.tcp://192.168.0.150:4840"
 
-client = Client(url)
+cliente_opc = Client(url)
+cliente_opc.connect()
+print("Cliente conectado al servidor OPC UA")
 
-client.connect()
-print("Client Connected")
+cliente_mqtt = mqtt.Client()
+cliente_mqtt.on_connect = on_connect  # Asignamos la función de callback
+cliente_mqtt.connect("192.168.0.111", 1883, 60)
 
-client1 = mqtt.Client()
-client1.connect("192.168.0.111", 1883, 60)
+# Iniciar el bucle para mantener la conexión MQTT activa
+cliente_mqtt.loop_start()
 
 while True:
-    Temp = client.get_node("ns=2;i=2")
-    Temperature = Temp.get_value()
-    print(Temperature)
+    # Obtener los valores de los sensores desde el servidor OPC UA
+    temp = cliente_opc.get_node("ns=2;i=2")
+    temperatura = temp.get_value()
+    print("Temperatura:", temperatura)
     
-    Press = client.get_node("ns=2;i=3")
-    Pressure = Press.get_value()
-    print(Pressure)
+    pres = cliente_opc.get_node("ns=2;i=3")
+    presion = pres.get_value()
+    print("Presión:", presion)
    
-    TIME = client.get_node ("ns=2;i=4")
-    TIME_Value = TIME.get_value()
-    print(TIME_Value)
+    tiempo = cliente_opc.get_node("ns=2;i=4")
+    valor_tiempo = tiempo.get_value()
+    print("Tiempo:", valor_tiempo)
 
+    # Publicar los valores en los tópicos con el prefijo "sensores/"
+    cliente_mqtt.publish("sensores/temp", temperatura)
+    cliente_mqtt.publish("sensores/pres", presion)
+    cliente_mqtt.publish("sensores/tiempo", str(valor_tiempo))  # Convertir valor_tiempo a string
     
-    client1.publish("temp", Temperature)
-    client1.publish("press", Pressure)
-    client1.publish("time", TIME_Value)
+    # Mostrar los valores enviados al broker MQTT
+    print(f"Enviado al broker MQTT: Temp = {temperatura}, Pres = {presion}, Tiempo = {valor_tiempo}")
     
     time.sleep(1)
 
