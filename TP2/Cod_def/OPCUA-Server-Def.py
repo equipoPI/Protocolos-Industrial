@@ -1,6 +1,6 @@
 from opcua import Server
 from random import randint
-import datetime  # Asegúrate de importar datetime
+import datetime  
 import time
 
 #para que sea ejecutable en rasberry
@@ -21,6 +21,7 @@ node = server.get_objects_node()
 
 Param = node.add_object(addspace, "Parameters")
 
+#variables de los sensores 
 Temp = Param.add_variable(addspace, "Temperature", 0)
 Press = Param.add_variable(addspace, "Pressure", 0)
 Time = Param.add_variable(addspace, "Time", 0)
@@ -33,8 +34,10 @@ server.start()
 print("Server started at {}".format(url))
 
 while True:
+    #genera valores aleatorios para los sensores
     Temperature = randint(10, 50)
     Pressure = randint(200, 999)
+    #obtiene el valor temporal del momento
     TIME = datetime.datetime.now()
 
     print(Temperature, Pressure, TIME)

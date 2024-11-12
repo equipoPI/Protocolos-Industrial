@@ -27,13 +27,15 @@ print("Cliente conectado al servidor OPC UA")
 
 cliente_mqtt = mqtt.Client()
 cliente_mqtt.on_connect = on_connect  # Asignamos la función de callback
+
+#se debe de colocar la IP del Broker Mqtt con el cual se quiere comunicar
 cliente_mqtt.connect("192.168.0.111", 1883, 60)
 
 # Iniciar el bucle para mantener la conexión MQTT activa
 cliente_mqtt.loop_start()
 
 while True:
-    # Obtener los valores de los sensores desde el servidor OPC UA
+    # Obtener los valores de los sensores desde el servidor OPC UA y los muestra en la terminal
     temp = cliente_opc.get_node("ns=2;i=2")
     temperatura = temp.get_value()
     print("Temperatura:", temperatura)
@@ -51,7 +53,7 @@ while True:
     cliente_mqtt.publish("sensores/pres", presion)
     cliente_mqtt.publish("sensores/tiempo", str(valor_tiempo))  # Convertir valor_tiempo a string
     
-    # Mostrar los valores enviados al broker MQTT
+    # Mostrar los valores enviados al broker MQTT en la terminal 
     print(f"Enviado al broker MQTT: Temp = {temperatura}, Pres = {presion}, Tiempo = {valor_tiempo}")
     
     time.sleep(1)
