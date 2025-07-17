@@ -1,11 +1,14 @@
 
 '''
 Para iniciar el broker mosquito se necesita introducir el codigo:
+C:\Program Files\mosquitto
+
 mosquitto -c mosquitto.conf
 
 mosquitto_sub -h ip_broker -t nombre_topico
 
 mosquitto_pub -h ip_broker -t nombre_topico -m valor/dato
+mosquitto_sub -h 192.168.0.111 -t "sensors/#"
 '''
 from opcua import Client
 import time
@@ -57,5 +60,11 @@ while True:
     print(f"Enviado al broker MQTT: Temp = {temperatura}, Pres = {presion}, Tiempo = {valor_tiempo}")
     
     time.sleep(1)
+
+    '''Protocolos-Industrial\
+
+        ver broker de internet y diferencias de la ip
+        ver de la caida de los dispositivos que conforman la red
+        '''
 
 
