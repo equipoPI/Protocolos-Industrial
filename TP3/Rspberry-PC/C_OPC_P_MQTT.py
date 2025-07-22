@@ -15,7 +15,7 @@ import paho.mqtt.client as mqtt
 
 # ----------------- Configuracion -----------------
 
-# Direcci�n IP del servidor OPC UA (Raspberry Pi o PC)
+# Direccion IP del servidor OPC UA (Raspberry Pi o PC)
 opcua_url = "opc.tcp://192.168.0.150:4840"
 
 # Direccion IP del broker MQTT y puerto
@@ -47,7 +47,7 @@ nodos = {
     "Digital1": client_opcua.get_node("ns=2;i=4"),
     "Luz":      client_opcua.get_node("ns=2;i=5"),
     "Pote":     client_opcua.get_node("ns=2;i=6"),
-    "Reserva":  client_opcua.get_node("ns=2;i=7"),
+    "Digital2":  client_opcua.get_node("ns=2;i=7"),
     "NC1":      client_opcua.get_node("ns=2;i=8"),
     "NC2":      client_opcua.get_node("ns=2;i=9"),
     "Hora":     client_opcua.get_node("ns=2;i=10")

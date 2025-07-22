@@ -2,7 +2,6 @@ from opcua import Server
 import datetime
 import time
 import serial
-import time
 import struct
 
 #para ejecutarlo: python3 /home/lautaro/Proyects/Protocolos-Industrial/TP3/Arduino-Raspberry/M_MODBUS_S_OPCUA.py
@@ -211,26 +210,91 @@ def escribir_valor(valor):
 
     print("❌ Error: No se pudo confirmar la escritura tras varios intentos.")
 
+# -------- Nueva función para escribir en cualquier registro MODBUS --------
+def escribir_valor_modbus(registro, valor):
+    slave_addr = 0x03
+    function = 0x06  # Código de función: escritura en registro único
+    reg_addr = registro
+
+    frame = bytearray()
+    frame.append(slave_addr)
+    frame.append(function)
+    frame += reg_addr.to_bytes(2, byteorder='big')
+    frame += valor.to_bytes(2, byteorder='big')
+
+    crc = calc_crc(frame)
+    frame += crc.to_bytes(2, byteorder='little')
+
+    print(f"\n📤 Trama enviada (escritura reg {registro}):")
+    for i, b in enumerate(frame):
+        print(f"  Byte {i}: {format(b, '08b')}")
+
+    intento = 0
+    max_intentos = 5
+
+    while intento < max_intentos:
+        ser.reset_input_buffer()
+        ser.write(frame)
+        time.sleep(0.1)
+
+        respuesta = ser.read(8)
+
+        if len(respuesta) < 8:
+            print(f"⚠️  Respuesta incompleta ({len(respuesta)} bytes): {[format(b, '08b') for b in respuesta]}")
+            intento += 1
+            continue
+
+        print("📥 Respuesta recibida (escritura):")
+        for i, b in enumerate(respuesta):
+            print(f"  Byte {i}: {format(b, '08b')}")
+
+        if respuesta[0] != slave_addr or respuesta[1] != function:
+            print("⚠️  Cabecera incorrecta. Reintentando...")
+            intento += 1
+            continue
+
+        crc_recibido = int.from_bytes(respuesta[-2:], byteorder='little')
+        crc_calculado = calc_crc(respuesta[:-2])
+
+        print(f"🔐 CRC recibido:  {format(crc_recibido, '016b')}")
+        print(f"🔐 CRC calculado: {format(crc_calculado, '016b')}")
+
+        if crc_recibido == crc_calculado:
+            print("✅ Comando de escritura confirmado por esclavo.")
+            return
+        else:
+            print("❌ CRC incorrecto en respuesta de escritura. Reintentando...")
+            intento += 1
+            time.sleep(0.2)
+
+    print("❌ Error: No se pudo confirmar la escritura tras varios intentos.")
+
 # -------- LOOP PRINCIPAL --------
 try:
     while True:
-        # Intentar leer cada registro. Si no se puede, se conserva el valor anterior.
-        r1 = leer_entrada(1);  Registro1 = r1 if r1 is not None else Registro1
-        r2 = leer_entrada(2);  Registro2 = r2 if r2 is not None else Registro2
-        r3 = leer_entrada(3);  Registro3 = r3 if r3 is not None else Registro3
+        # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
+        pwm_led1 = Reg1.get_value()
+        pwm_led2 = Reg2.get_value()
+        digital1 = Reg3.get_value()
+        digital2 = Reg6.get_value()
+
+        # Escribir PWM_LED1 (registro 1)
+        escribir_valor_modbus(1, int(pwm_led1))
+        # Escribir PWM_LED2 (registro 2)
+        escribir_valor_modbus(2, int(pwm_led2))
+        # Escribir Digital1 (registro 3)
+        escribir_valor_modbus(3, int(digital1))
+        # Escribir Digital2 (registro 6)
+        escribir_valor_modbus(6, int(digital2))
+
+        # 2. Leer sensores desde MODBUS y actualizar OPC UA (Luz, Pote, NC1, NC2)
         r4 = leer_entrada(4);  Registro4 = r4 if r4 is not None else Registro4
         r5 = leer_entrada(5);  Registro5 = r5 if r5 is not None else Registro5
-        r6 = leer_entrada(6);  Registro6 = r6 if r6 is not None else Registro6
         r7 = leer_entrada(7);  Registro7 = r7 if r7 is not None else Registro7
         r8 = leer_entrada(8);  Registro8 = r8 if r8 is not None else Registro8
 
-         # Asignar los valores actuales al servidor OPC UA
-        Reg1.set_value(Registro1)
-        Reg2.set_value(Registro2)
-        Reg3.set_value(Registro3)
         Reg4.set_value(Registro4)
         Reg5.set_value(Registro5)
-        Reg6.set_value(Registro6)
         Reg7.set_value(Registro7)
         Reg8.set_value(Registro8)
 
@@ -238,20 +302,14 @@ try:
 
         # Mostrar en consola para monitoreo
         print(f"[{datetime.datetime.now()}] Publicando:")
-        print(f"  PWM LED1: {Registro1} | PWM LED2: {Registro2}")
-        print(f"  Digital1: {Registro3} | Luz: {Registro4}")
-        print(f"  Pote: {Registro5} | Digital2: {Registro6}")
+        print(f"  PWM LED1: {pwm_led1} | PWM LED2: {pwm_led2}")
+        print(f"  Digital1: {digital1} | Digital2: {digital2}")
+        print(f"  Luz: {Registro4} | Pote: {Registro5}")
         print(f"  NC1: {Registro7} | NC2: {Registro8}")
         print()
 
-        # Esperar un poco antes de escribir (evita saturar la línea)
+        # Esperar un poco antes de la próxima iteración
         time.sleep(2)
-
-        # Enviar valor definido al esclavo
-        escribir_valor(VALOR_A_ESCRIBIR)
-
-        # Pausa antes de la próxima iteración del bucle
-        time.sleep(10)
 
 except KeyboardInterrupt:
     print("\n🛑 Finalizando programa por interrupción del usuario.")
@@ -260,5 +318,3 @@ except KeyboardInterrupt:
 
 finally:
     server.stop()
-
-

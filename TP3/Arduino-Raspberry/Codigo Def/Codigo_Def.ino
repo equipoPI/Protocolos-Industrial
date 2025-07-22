@@ -6,7 +6,6 @@
 #define Luz A0
 #define Pote A1
 
-
 // Definición de variables tramas de recepción
 const int arraySize = 8;  // Tamaño del array para almacenar los datos
 byte receivedData[arraySize];  // Array para almacenar los datos en formato binario
@@ -26,12 +25,15 @@ const int arrayLong = 5;
 unsigned int reciveDataDecimalUnifi[arrayLong];
 
 // Variables de registros
-int valorPWMOUT1 = 50;        // Registro 1
+int valorPWMOUT1 = 50;         // Registro 1
 int valorPWMOUT2 = 50;         // Registro 2
 int valorDigital = 0;          // Registro 3
 int lecturaLUZ = 925;          // Registro 4
 int lecturaPote = 300;         // Registro 5
-byte activarSalida = 1;        // Registro 6
+int Presion1 = 0;              // Registro 6
+int valorDigital2 = 0;         // Registro 7
+int Presion2 = 0;              // Registro 8
+
 
 unsigned int envioID = 0;
 unsigned int envioFunc = 0;
@@ -43,6 +45,7 @@ bool crcMatch = false;  // Variable para verificar si el CRC coincide
 void setup() {
   Serial.begin(9600);  // Inicializar el monitor serial a 9600 bps
   Serial1.begin(9600); // Inicializar Serial1 con paridad par
+  delay(200); // Estabilizar USB
 
   pinMode(REPin, OUTPUT);      // Configurar el pin RE como salida
   digitalWrite(REPin, LOW);    // Habilitar la recepción
@@ -58,17 +61,17 @@ void setup() {
 
 void loop() {
   // Leer datos del puerto serie Serial1 (MAX485)
-  while (Serial1.available()) {  // Si hay datos disponibles
-    byte incomingByte = Serial1.read(); // Leer un byte como valor numérico
+  while (Serial.available()) {  // Si hay datos disponibles
+    byte incomingByte = Serial.read(); // Leer un byte como valor numérico
 
     // Mostrar el byte en formato binario de 8 bits
-    Serial.print("Valor recibido en binario: ");
-    Serial.println(byteToBinary8(incomingByte)); // Mostrar en binario
+    Serial1.print("Valor recibido en binario: ");
+    Serial1.println(byteToBinary8(incomingByte)); // Mostrar en binario
 
     // Convertir el byte a decimal y mostrarlo
     int decimalValue = (int)incomingByte;  // Convertir el byte a decimal
-    Serial.print("Valor recibido en decimal: ");
-    Serial.println(decimalValue);  // Mostrar en decimal
+    Serial1.print("Valor recibido en decimal: ");
+    Serial1.println(decimalValue);  // Mostrar en decimal
 
     // Guardar el byte en el array en la posición cíclica
     receivedData[currentIndex] = incomingByte;  // Guardar el dato en binario
@@ -87,47 +90,47 @@ void loop() {
     reciveDataDecimalUnifi[4] = (receivedData[7] << 8) | receivedData[6]; // Combinar posición 6 y 7
 
     // Mostrar los valores combinados
-    Serial.println("Datos combinados:");
-    Serial.print("ID: ");
-    Serial.println(reciveDataDecimalUnifi[0]);
-    Serial.print("Func: ");
-    Serial.println(reciveDataDecimalUnifi[1]);
-    Serial.print("Reg: ");
-    Serial.println(reciveDataDecimalUnifi[2]);
-    Serial.print("Cant: ");
-    Serial.println(reciveDataDecimalUnifi[3]);
-    Serial.print("CRC Recibido: ");
-    Serial.println(reciveDataDecimalUnifi[4]);
+    Serial1.println("Datos combinados:");
+    Serial1.print("ID: ");
+    Serial1.println(reciveDataDecimalUnifi[0]);
+    Serial1.print("Func: ");
+    Serial1.println(reciveDataDecimalUnifi[1]);
+    Serial1.print("Reg: ");
+    Serial1.println(reciveDataDecimalUnifi[2]);
+    Serial1.print("Cant: ");
+    Serial1.println(reciveDataDecimalUnifi[3]);
+    Serial1.print("CRC Recibido: ");
+    Serial1.println(reciveDataDecimalUnifi[4]);
 
     // Calcular el CRC de los primeros 6 bytes recibidos
     unsigned int CRCcalculado = calcularCRC(receivedData, 6);
-    Serial.print("CRC Calculado: ");
-    Serial.println(CRCcalculado);
+    Serial1.print("CRC Calculado: ");
+    Serial1.println(CRCcalculado);
 
     // Verificar si el CRC calculado coincide con el CRC recibido
     crcMatch = (CRCcalculado == reciveDataDecimalUnifi[4]);
 
     // Mostrar el estado del CRC
-    Serial.print("CRC match: ");
-    Serial.println(crcMatch ? "Sí" : "No");
+    Serial1.print("CRC match: ");
+    Serial1.println(crcMatch ? "Sí" : "No");
 
-    Serial.print("Luz: ");
-    Serial.println(lecturaLUZ);
+    Serial1.print("Luz: ");
+    Serial1.println(lecturaLUZ);
 
-    Serial.print("ActSal: ");
-    Serial.println(activarSalida);
+    Serial1.print("ActSal: ");
+    Serial1.println(Presion1);
 
-    Serial.print("Pote: ");
-    Serial.println(lecturaPote);
+    Serial1.print("Pote: ");
+    Serial1.println(lecturaPote);
 
-    Serial.print("ValDig: ");
-    Serial.println(valorDigital);
+    Serial1.print("ValDig: ");
+    Serial1.println(valorDigital);
 
     if (crcMatch && reciveDataDecimalUnifi[0] == 3) {
-      Serial.println("CRC correcto, proceder con lectura/escritura.");
+      Serial1.println("CRC correcto, proceder con lectura/escritura.");
 
       if (reciveDataDecimalUnifi[1] == 3) {  // Función 03
-        Serial.println("Función 03 reconocida");
+        Serial1.println("Función 03 reconocida");
 
         envioID = 3;
         envioFunc = 3;
@@ -150,7 +153,13 @@ void loop() {
             valorEnv = lecturaPote;
             break;
           case 6:
-            valorEnv = activarSalida;
+            valorEnv = Presion1;
+            break;
+          case 7:
+            valorEnv = valorDigital2;
+            break;
+          case 8:
+            valorEnv = Presion2;
             break;
         }
 
@@ -173,17 +182,31 @@ void loop() {
 
         digitalWrite(REPin, HIGH);
         // Enviar la respuesta completa por Serial1
-        Serial.println("En proceso de envío...");
-        Serial1.write(responseData, arraySizeResponse);
-        delay(500);
+        Serial1.println("En proceso de envío...");
+        delay(20);
+
+        // Mostrar contenido del array responseData antes de enviarlo
+        Serial1.println("Contenido de responseData a enviar:");
+        for (int i = 0; i < arraySizeResponse; i++) {
+          Serial1.print("Byte ");
+          Serial1.print(i);
+          Serial1.print(" (Decimal): ");
+          Serial1.print(responseData[i]);
+          Serial1.print("  (Binario): ");
+          Serial1.println(byteToBinary8(responseData[i]));
+        }
+
+        delay(20);
+        Serial.write(responseData, arraySizeResponse);
+        delay(20);
         digitalWrite(REPin, LOW);
-        Serial.println("Datos enviados.");
+        Serial1.println("Datos enviados.");
 
       }
 
       if (reciveDataDecimalUnifi[1] == 6) {
         // Manejo para función 06 (Escritura de registros)
-        Serial.println("Función 06 reconocida");
+        Serial1.println("Función 06 reconocida");
 
         envioID = 3;
         envioFunc = 6;
@@ -198,17 +221,24 @@ void loop() {
             valorEnv = valorPWMOUT2;
             break;
           case 3:
-            Serial.print("none");
+            valorDigital = reciveDataDecimalUnifi[3];
+            valorEnv = valorDigital;
             break;
           case 4:
-            Serial.print("none");
+            Serial1.print("none");
             break;
           case 5:
-            Serial.print("none");
+            Serial1.print("none");
             break;
           case 6:
-            activarSalida = reciveDataDecimalUnifi[3];
-            valorEnv = activarSalida;
+            Serial1.print("none");
+            break;
+          case 7:
+            valorDigital2 = reciveDataDecimalUnifi[3];
+            valorEnv = valorDigital2;
+            break;
+          case 8:
+            Serial1.print("none");
             break;
         }
 
@@ -236,11 +266,12 @@ void loop() {
 
         digitalWrite(REPin, HIGH);
         // Enviar la respuesta completa por Serial1
-        Serial.println("En proceso de envío...");
-        Serial1.write(responseDataW, sizeWrite);
-        delay(500);
+        Serial1.println("En proceso de envío...");
+        delay(20);
+        Serial.write(responseDataW, sizeWrite);
+        delay(20);
         digitalWrite(REPin, LOW);
-        Serial.println("Datos enviados.");
+        Serial1.println("Datos enviados.");
       }
 
       receivedData[0] = 0;
@@ -251,9 +282,11 @@ void loop() {
       receivedData[5] = 0;
       receivedData[6] = 0;
       receivedData[7] = 0;
+      currentIndex = 0;
 
     } else {
-      Serial.println("Error en el CRC o ID no válido.");
+      Serial1.println("Error en el CRC o ID no válido.");
+      currentIndex = 0;
     }
   }
 
@@ -263,12 +296,12 @@ void loop() {
   lecturaPote = analogRead(Pote);
   valorDigital = digitalRead(Digital);
 
-  if (activarSalida >= 1) {
+  if (Presion1 >= 1) {
     analogWrite(LED1, valorPWMOUT1);
     analogWrite(LED2, valorPWMOUT2);
   }
 
-  if (activarSalida == 0) {
+  if (Presion1 == 0) {
     analogWrite(LED1, 0);
     analogWrite(LED2, 0);
   }
