@@ -336,7 +336,7 @@
             <h3>Configuración de Conexión MQTT</h3>
             <div class="config-row">
                 <label>Broker:</label>
-                <input type="text" id="brokerUrl" value="ws://localhost:9001" placeholder="ws://localhost:9001">
+                <input type="text" id="brokerUrl" value="wss://broker.emqx.io:8084/mqtt" placeholder="wss://broker.emqx.io:8084/mqtt">
             </div>
             <div class="config-row">
                 <label>Cliente ID:</label>
@@ -434,7 +434,7 @@
         let isConnected = false;
         let lastDataReceived = {};
         let connectionConfig = {
-            brokerUrl: 'ws://localhost:9001',
+            brokerUrl: 'wss://broker.emqx.io:8084/mqtt',
             clientId: 'web-client-001',
             baseTopic: 'modbus/plc'
         };
