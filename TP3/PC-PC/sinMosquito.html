@@ -412,7 +412,7 @@
                     <label>Salida Analógica 1:</label>
                     <div class="slider-container">
                         <input type="range" min="0" max="100" value="0" class="slider" id="analogOutput1" 
-                               oninput="updateAnalogOutput(1, this.value)">
+                               onchange="updateAnalogOutput(1, this.value)">
                         <div class="slider-value" id="analogOutput1Value">0%</div>
                     </div>
                 </div>
@@ -421,7 +421,7 @@
                     <label>Salida Analógica 2:</label>
                     <div class="slider-container">
                         <input type="range" min="0" max="100" value="0" class="slider" id="analogOutput2" 
-                               oninput="updateAnalogOutput(2, this.value)">
+                               onchange="updateAnalogOutput(2, this.value)">
                         <div class="slider-value" id="analogOutput2Value">0%</div>
                     </div>
                 </div>

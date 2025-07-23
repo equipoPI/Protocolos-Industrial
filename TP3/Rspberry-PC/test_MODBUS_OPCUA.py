@@ -1,4 +1,3 @@
-
 # Script para integrar servidor OPC UA y maestro MODBUS RTU.
 # Permite controlar y monitorear variables entre Python y Arduino usando OPC UA y MODBUS.
 # Para ejecutarlo: python3 /home/lautaro/Proyects/Protocolos-Industrial/TP3/Arduino-Raspberry/M_MODBUS_S_OPCUA.py
@@ -8,6 +7,8 @@ import datetime
 import time
 import serial
 import struct
+import paho.mqtt.client as mqtt
+import json
 
 # ======================================================
 # ========== CONFIG. SERVIDOR OPC UA INTEGRADO =========
@@ -61,7 +62,6 @@ print(f"✅ Servidor OPC UA iniciado en {url}")
 
 
 # -------- CONFIGURACIÓN GENERAL MODBUS --------
-VALOR_A_ESCRIBIR = 25  # Valor de prueba para escritura en MODBUS (puedes cambiarlo)
 
 # Variables globales para almacenar las lecturas de los registros MODBUS
 # Se conservan los valores anteriores si ocurre un error de lectura
@@ -164,71 +164,7 @@ def leer_entrada(registro):
     return None  # Devuelve None si no se obtuvo una lectura válida
 
 
-# -------- Escribir un valor en registro MODBUS --------
-# Escribe un valor en un registro MODBUS específico y verifica la respuesta
-def escribir_valor(valor):
-    slave_addr = 0x03
-    function = 0x06  # Código de función: escritura en registro único
-    reg_addr = 0x0002  # Dirección del registro de escritura
-
-    # Construcción de la trama de escritura MODBUS
-    frame = bytearray()
-    frame.append(slave_addr)
-    frame.append(function)
-    frame += reg_addr.to_bytes(2, byteorder='big')
-    frame += valor.to_bytes(2, byteorder='big')
-
-    crc = calc_crc(frame)
-    frame += crc.to_bytes(2, byteorder='little')
-
-    print("\n📤 Trama enviada (escritura):")
-    for i, b in enumerate(frame):
-        print(f"  Byte {i}: {format(b, '08b')}")
-
-    intento = 0
-    max_intentos = 5
-
-    while intento < max_intentos:
-        ser.reset_input_buffer()
-        ser.write(frame)
-        time.sleep(0.1)
-
-        respuesta = ser.read(8)  # Esperamos 8 bytes de respuesta
-
-        if len(respuesta) < 8:
-            print(f"⚠️  Respuesta incompleta ({len(respuesta)} bytes): {[format(b, '08b') for b in respuesta]}")
-            intento += 1
-            continue
-
-        print("📥 Respuesta recibida (escritura):")
-        for i, b in enumerate(respuesta):
-            print(f"  Byte {i}: {format(b, '08b')}")
-
-        # Verificar dirección y función de la respuesta
-        if respuesta[0] != slave_addr or respuesta[1] != function:
-            print("⚠️  Cabecera incorrecta. Reintentando...")
-            intento += 1
-            continue
-
-        # Verificación de CRC de la respuesta
-        crc_recibido = int.from_bytes(respuesta[-2:], byteorder='little')
-        crc_calculado = calc_crc(respuesta[:-2])
-
-        print(f"🔐 CRC recibido:  {format(crc_recibido, '016b')}")
-        print(f"🔐 CRC calculado: {format(crc_calculado, '016b')}")
-
-        if crc_recibido == crc_calculado:
-            print("✅ Comando de escritura confirmado por esclavo.")
-            return
-        else:
-            print("❌ CRC incorrecto en respuesta de escritura. Reintentando...")
-            intento += 1
-            time.sleep(0.2)
-
-    print("❌ Error: No se pudo confirmar la escritura tras varios intentos.")
-
-
-# -------- Nueva función para escribir en cualquier registro MODBUS --------
+# -------- Función para escribir en cualquier registro MODBUS --------
 # Escribe un valor en cualquier registro MODBUS especificado
 def escribir_valor_modbus(registro, valor):
     slave_addr = 0x03
@@ -295,6 +231,26 @@ def escribir_valor_modbus(registro, valor):
 # En este loop se sincronizan los datos entre OPC UA y MODBUS:
 # 1. Se reciben comandos desde OPC UA y se escriben en los registros MODBUS (PWM y digitales)
 # 2. Se leen sensores desde MODBUS y se actualizan los nodos OPC UA para monitoreo web
+# MQTT para publicar estado de MODBUS
+mqtt_broker = "broker.emqx.io"
+mqtt_port = 1883
+try:
+    client_mqtt = mqtt.Client()
+    client_mqtt.connect(mqtt_broker, mqtt_port, 60)
+    mqtt_status = True
+    print(f"✅ Conectado a MQTT {mqtt_broker}:{mqtt_port}")
+    # Publicar estado conectado
+    status_payload = json.dumps({"connected": True})
+    client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+except Exception as e:
+    print(f"[ERROR] No se pudo conectar a MQTT: {e}")
+    mqtt_status = False
+    status_payload = json.dumps({"connected": False, "error": str(e)})
+    try:
+        client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+    except:
+        pass
+
 try:
     while True:
         # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
@@ -332,16 +288,48 @@ try:
         print(f"  Luz: {Registro4} | Pote: {Registro5}")
         print(f"  NC1: {Registro7} | NC2: {Registro8}")
         print()
+        # Publicar estado conectado MODBUS en cada ciclo
+        if mqtt_status:
+            status_payload = json.dumps({"connected": True})
+            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
 
+            # Publicar estados de Salida Digital 1 y 2 en MQTT para la web
+            try:
+                print(f"  Publicando Salida Digital 1: {digital1}")
+                payload1 = json.dumps({"value": bool(digital1)})
+                client_mqtt.publish("modbus/plc/outputs/1", payload1)
+            except Exception as e:
+                print(f"[ERROR] Publicando Salida Digital 1: {e}")
+                error_payload = json.dumps({"connected": False, "error": f"Salida Digital 1 error: {e}"})
+                client_mqtt.publish("modbus/plc/status/outputs/1", error_payload)
+
+            try:
+                print(f"  Publicando Salida Digital 2: {digital2}")
+                payload2 = json.dumps({"value": bool(digital2)})
+                client_mqtt.publish("modbus/plc/outputs/2", payload2)
+            except Exception as e:
+                print(f"[ERROR] Publicando Salida Digital 2: {e}")
+                error_payload = json.dumps({"connected": False, "error": f"Salida Digital 2 error: {e}"})
+                client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
         # Esperar un poco antes de la próxima iteración
         time.sleep(2)
-
-# Si el usuario presiona Ctrl+C, se sale del loop principal y se cierra el servidor y el puerto serial
 except KeyboardInterrupt:
     print("\n🛑 Finalizando programa por interrupción del usuario.")
     print("⛔ Servidor detenido por el usuario.")
     ser.close()
-
-# Finalización segura del servidor OPC UA
+    # Publicar desconexión MODBUS en MQTT
+    if 'client_mqtt' in locals():
+        try:
+            status_payload = json.dumps({"connected": False, "error": "Servidor detenido por el usuario"})
+            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+        except:
+            pass
 finally:
     server.stop()
+    # Publicar desconexión MODBUS en MQTT
+    if 'client_mqtt' in locals():
+        try:
+            status_payload = json.dumps({"connected": False, "error": "Servidor OPC UA detenido"})
+            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+        except:
+            pass

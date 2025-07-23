@@ -1,11 +1,8 @@
-
-
 # Este script conecta un cliente OPC UA y un cliente MQTT para publicar y recibir datos entre ambos.
 # Los datos publicados por MQTT pueden ser visualizados en una interfaz web (HTML) y controlados desde allí.
 # El script también recibe comandos desde la web para controlar salidas digitales y analógicas.
 
 
-# Importa el cliente OPC UA para conectarse al servidor
 # Importa el cliente OPC UA para conectarse al servidor
 from opcua import Client
 
@@ -15,7 +12,6 @@ import time
 import paho.mqtt.client as mqtt
 
 # ----------------- Configuracion -----------------
-
 
 # Dirección IP del servidor OPC UA (Raspberry Pi o PC)
 opcua_url = "opc.tcp://192.168.0.150:4840"  # Cambia la IP si tu servidor OPC UA está en otra máquina
@@ -184,6 +180,26 @@ try:
                 print(f"[ERROR] Leyendo entrada digital {entrada}: {e}")
                 error_payload = json.dumps({"connected": False, "error": f"Entrada digital {entrada} error: {e}"})
                 client_mqtt.publish(f"modbus/plc/status/inputs/{i}", error_payload)
+        # Publicar estados de Salida Digital 1 y 2 en MQTT para la web
+        try:
+            salida1 = nodos["Digital1"].get_value()
+            print(f"  Salida Digital 1: {salida1}")
+            payload1 = json.dumps({"value": bool(salida1)})
+            client_mqtt.publish("modbus/plc/outputs/1", payload1)
+        except Exception as e:
+            print(f"[ERROR] Leyendo Salida Digital 1: {e}")
+            error_payload = json.dumps({"connected": False, "error": f"Salida Digital 1 error: {e}"})
+            client_mqtt.publish("modbus/plc/status/outputs/1", error_payload)
+
+        try:
+            salida2 = nodos["Digital2"].get_value()
+            print(f"  Salida Digital 2: {salida2}")
+            payload2 = json.dumps({"value": bool(salida2)})
+            client_mqtt.publish("modbus/plc/outputs/2", payload2)
+        except Exception as e:
+            print(f"[ERROR] Leyendo Salida Digital 2: {e}")
+            error_payload = json.dumps({"connected": False, "error": f"Salida Digital 2 error: {e}"})
+            client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
 
         # Publicar estado de MODbus (status/modbus) en MQTT
         modbus_status = True  # Suponemos que si el script está corriendo, MODbus está conectado
@@ -210,5 +226,9 @@ finally:
     try:
         client_opcua.disconnect()
         print("?? Desconectado del servidor OPC UA")
+        # Publicar desconexión OPC UA en MQTT
+        if mqtt_status:
+            status_payload = json.dumps({"connected": False, "error": "Servidor OPC UA desconectado"})
+            client_mqtt.publish("modbus/plc/status/opc", status_payload)
     except Exception as e:
         print(f"[ERROR] Al desconectar OPC UA: {e}")
