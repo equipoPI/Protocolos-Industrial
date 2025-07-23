@@ -70,8 +70,8 @@ Registro2 = 0  # PWM LED 2
 Registro3 = 0  # Entrada Digital 1
 Registro4 = 0  # Sensor de luz analógico
 Registro5 = 0  # Potenciómetro
-Registro6 = 0  # Sensor de presión 1
-Registro7 = 0  # Entrada Digital 2
+Registro6 = 0  # Entrada Digital 2
+Registro7 = 0  # Sensor de presión 1
 Registro8 = 0  # Sensor de presión 2
 
 
@@ -232,27 +232,10 @@ def escribir_valor_modbus(registro, valor):
 # 1. Se reciben comandos desde OPC UA y se escriben en los registros MODBUS (PWM y digitales)
 # 2. Se leen sensores desde MODBUS y se actualizan los nodos OPC UA para monitoreo web
 # MQTT para publicar estado de MODBUS
-mqtt_broker = "broker.emqx.io"
-mqtt_port = 1883
-try:
-    client_mqtt = mqtt.Client()
-    client_mqtt.connect(mqtt_broker, mqtt_port, 60)
-    mqtt_status = True
-    print(f"✅ Conectado a MQTT {mqtt_broker}:{mqtt_port}")
-    # Publicar estado conectado
-    status_payload = json.dumps({"connected": True})
-    client_mqtt.publish("modbus/plc/status/modbus", status_payload)
-except Exception as e:
-    print(f"[ERROR] No se pudo conectar a MQTT: {e}")
-    mqtt_status = False
-    status_payload = json.dumps({"connected": False, "error": str(e)})
-    try:
-        client_mqtt.publish("modbus/plc/status/modbus", status_payload)
-    except:
-        pass
 
 try:
     while True:
+        modbus_conectado = True
         try:
             # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
             pwm_led1 = Reg1.get_value()
@@ -283,62 +266,36 @@ try:
             Hora.set_value(datetime.datetime.now())
 
             # Mostrar en consola para monitoreo
-            print(f"[{datetime.datetime.now()}] Publicando:")
+            print(f"[{datetime.datetime.now()}] Actualizando OPC UA:")
             print(f"  PWM LED1: {pwm_led1} | PWM LED2: {pwm_led2}")
             print(f"  Digital1: {digital1} | Digital2: {digital2}")
             print(f"  Luz: {Registro4} | Pote: {Registro5}")
             print(f"  NC1: {Registro7} | NC2: {Registro8}")
             print()
-            # Publicar estado conectado MODBUS en cada ciclo
-            if mqtt_status:
-                status_payload = json.dumps({"connected": True})
-                client_mqtt.publish("modbus/plc/status/modbus", status_payload)
-
-                # Publicar estados de Salida Digital 1 y 2 en MQTT para la web
-                try:
-                    print(f"  Publicando Salida Digital 1: {digital1}")
-                    payload1 = json.dumps({"value": bool(digital1)})
-                    client_mqtt.publish("modbus/plc/outputs/1", payload1)
-                except Exception as e:
-                    print(f"[ERROR] Publicando Salida Digital 1: {e}")
-                    error_payload = json.dumps({"connected": False, "error": f"Salida Digital 1 error: {e}"})
-                    client_mqtt.publish("modbus/plc/status/outputs/1", error_payload)
-
-                try:
-                    print(f"  Publicando Salida Digital 2: {digital2}")
-                    payload2 = json.dumps({"value": bool(digital2)})
-                    client_mqtt.publish("modbus/plc/outputs/2", payload2)
-                except Exception as e:
-                    print(f"[ERROR] Publicando Salida Digital 2: {e}")
-                    error_payload = json.dumps({"connected": False, "error": f"Salida Digital 2 error: {e}"})
-                    client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
-            # Esperar un poco antes de la próxima iteración
             time.sleep(2)
         except serial.serialutil.SerialException as se:
             print(f"[ERROR] SerialException: {se}")
-            # Publicar desconexión MODBUS en MQTT
-            if mqtt_status:
-                status_payload = json.dumps({"connected": False, "error": f"MODBUS desconectado: {se}"})
-                client_mqtt.publish("modbus/plc/status/modbus", status_payload)
-            # Opcional: mantener el servidor OPC UA activo o salir del bucle
-            break
+            modbus_conectado = False
+            # Intentar reconectar el puerto serie cada 5 segundos
+            while not modbus_conectado:
+                print("Intentando reconectar el puerto serie...")
+                try:
+                    ser.close()
+                except:
+                    pass
+                try:
+                    ser = serial.Serial(puerto, baudrate=baudrate, bytesize=8, parity='N', stopbits=1, timeout=1)
+                    time.sleep(3)
+                    print("¡Puerto serie reconectado!")
+                    modbus_conectado = True
+                except Exception as e:
+                    print(f"No se pudo reconectar: {e}")
+                    time.sleep(5)
+
 except KeyboardInterrupt:
     print("\n🛑 Finalizando programa por interrupción del usuario.")
     print("⛔ Servidor detenido por el usuario.")
     ser.close()
-    # Publicar desconexión MODBUS en MQTT
-    if 'client_mqtt' in locals():
-        try:
-            status_payload = json.dumps({"connected": False, "error": "Servidor detenido por el usuario"})
-            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
-        except:
-            pass
+
 finally:
     server.stop()
-    # Publicar desconexión MODBUS en MQTT
-    if 'client_mqtt' in locals():
-        try:
-            status_payload = json.dumps({"connected": False, "error": "Servidor OPC UA detenido"})
-            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
-        except:
-            pass
