@@ -239,8 +239,8 @@ def escribir_valor_modbus(registro, valor):
 
 try:
     while True:
-        modbus_conectado = True
         try:
+            modbus_conectado = True
             # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
             pwm_led1 = Reg1.get_value()
             pwm_led2 = Reg2.get_value()
@@ -289,7 +289,8 @@ try:
         except serial.serialutil.SerialException as se:
             print(f"[ERROR] SerialException: {se}")
             modbus_conectado = False
-            # Intentar reconectar el puerto serie cada 5 segundos
+            EMOD.set_value(modbus_conectado)
+            # Intentar reconectar el puerto serie cada 2 segundos
             while not modbus_conectado:
                 print("Intentando reconectar el puerto serie...")
                 try:
@@ -301,6 +302,7 @@ try:
                     time.sleep(3)
                     print("¡Puerto serie reconectado!")
                     modbus_conectado = True
+                    EMOD.set_value(modbus_conectado)
                 except Exception as e:
                     print(f"No se pudo reconectar: {e}")
                     time.sleep(2)

@@ -26,8 +26,6 @@ mqtt_broker_port = 1883  # Puerto TCP de EMQX
 
 # ----------------- Conexion OPC UA -----------------
 
-
-
 # Crea una instancia del cliente OPC UA y se conecta al servidor
 try:
     client_opcua = Client(opcua_url)
@@ -121,7 +119,6 @@ if mqtt_status:
 
 # ----------------- Obtencion de nodos OPC UA -----------------
 
-
 # Diccionario de nodos OPC UA: cada clave es el nombre simbólico de la variable
 # y el valor es el nodo OPC UA correspondiente. Los NodeId deben coincidir con los del servidor OPC UA.
 nodos = {
@@ -148,16 +145,17 @@ try:
         # Intentar reconectar OPC UA si está desconectado
         if not opc_status:
             print("[ERROR] OPC UA no disponible. Intentando reconectar...")
+            if mqtt_status:
+                status_payload = json.dumps({"connected": False, "error": "OPC UA no disponible"})
+                client_mqtt.publish("modbus/plc/status/opc", status_payload)
+                client_mqtt.publish("modbus/plc/status/modbus", json.dumps({"connected": False, "error": "MODBUS no disponible (OPC UA caído)"}))
             try:
                 client_opcua.connect()
                 opc_status = True
                 print("¡Reconectado al servidor OPC UA!")
             except Exception as e:
                 print(f"[ERROR] Falló la reconexión OPC UA: {e}")
-                if mqtt_status:
-                    status_payload = json.dumps({"connected": False, "error": "OPC UA no disponible"})
-                    client_mqtt.publish("topicos/status/opc", status_payload)
-                time.sleep(5)
+                time.sleep(2)
             continue
         if not mqtt_status:
             print("[ERROR] MQTT no disponible. No se puede publicar datos.")
@@ -177,6 +175,13 @@ try:
                 print(f"[ERROR] Leyendo sensor {sensor}: {e}")
                 error_payload = json.dumps({"connected": False, "error": f"Sensor {sensor} error: {e}"})
                 client_mqtt.publish(f"modbus/plc/status/sensors/{i}", error_payload)
+                # Si ocurre error de comunicación OPC UA, marcar desconexión
+                if 'BadCommunicationError' in str(e) or 'BadSessionIdInvalid' in str(e):
+                    opc_status = False
+                    if mqtt_status:
+                        client_mqtt.publish("modbus/plc/status/opc", json.dumps({"connected": False, "error": "OPC UA desconectado"}))
+                        client_mqtt.publish("modbus/plc/status/modbus", json.dumps({"connected": False, "error": "MODBUS no disponible (OPC UA caído)"}))
+                    break
 
         # Publicar entradas digitales (NC1 y NC2) en MQTT
         for i, entrada in enumerate(["NC1", "NC2"], start=1):
@@ -189,6 +194,12 @@ try:
                 print(f"[ERROR] Leyendo entrada digital {entrada}: {e}")
                 error_payload = json.dumps({"connected": False, "error": f"Entrada digital {entrada} error: {e}"})
                 client_mqtt.publish(f"modbus/plc/status/inputs/{i}", error_payload)
+                if 'BadCommunicationError' in str(e) or 'BadSessionIdInvalid' in str(e):
+                    opc_status = False
+                    if mqtt_status:
+                        client_mqtt.publish("modbus/plc/status/opc", json.dumps({"connected": False, "error": "OPC UA desconectado"}))
+                        client_mqtt.publish("modbus/plc/status/modbus", json.dumps({"connected": False, "error": "MODBUS no disponible (OPC UA caído)"}))
+                    break
         # Publicar estados de Salida Digital 1 y 2 en MQTT para la web
         try:
             salida1 = nodos["Digital1"].get_value()
@@ -199,6 +210,12 @@ try:
             print(f"[ERROR] Leyendo Salida Digital 1: {e}")
             error_payload = json.dumps({"connected": False, "error": f"Salida Digital 1 error: {e}"})
             client_mqtt.publish("modbus/plc/status/outputs/1", error_payload)
+            if 'BadCommunicationError' in str(e) or 'BadSessionIdInvalid' in str(e):
+                opc_status = False
+                if mqtt_status:
+                    client_mqtt.publish("modbus/plc/status/opc", json.dumps({"connected": False, "error": "OPC UA desconectado"}))
+                    client_mqtt.publish("modbus/plc/status/modbus", json.dumps({"connected": False, "error": "MODBUS no disponible (OPC UA caído)"}))
+                continue
 
         try:
             salida2 = nodos["Digital2"].get_value()
@@ -209,6 +226,12 @@ try:
             print(f"[ERROR] Leyendo Salida Digital 2: {e}")
             error_payload = json.dumps({"connected": False, "error": f"Salida Digital 2 error: {e}"})
             client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
+            if 'BadCommunicationError' in str(e) or 'BadSessionIdInvalid' in str(e):
+                opc_status = False
+                if mqtt_status:
+                    client_mqtt.publish("modbus/plc/status/opc", json.dumps({"connected": False, "error": "OPC UA desconectado"}))
+                    client_mqtt.publish("modbus/plc/status/modbus", json.dumps({"connected": False, "error": "MODBUS no disponible (OPC UA caído)"}))
+                continue
 
         # Publicar estado de MODbus (status/modbus) en MQTT
         try:
@@ -218,6 +241,14 @@ try:
             client_mqtt.publish("modbus/plc/status/modbus", status_payload)
         except Exception as e:
             print(f"[ERROR] Leyendo EMOD OPC UA: {e}")
+            error_payload = json.dumps({"connected": False, "error": f"EMOD OPC UA error: {e}"})
+            client_mqtt.publish("modbus/plc/status/modbus", error_payload)
+            if 'BadCommunicationError' in str(e) or 'BadSessionIdInvalid' in str(e):
+                opc_status = False
+                if mqtt_status:
+                    client_mqtt.publish("modbus/plc/status/opc", json.dumps({"connected": False, "error": "OPC UA desconectado"}))
+                    client_mqtt.publish("modbus/plc/status/modbus", json.dumps({"connected": False, "error": "MODBUS no disponible (OPC UA caído)"}))
+                continue
 
         # Publicar estado de OPC UA (status/opc) en MQTT
         status_payload = json.dumps({"connected": opc_status})
