@@ -253,66 +253,75 @@ except Exception as e:
 
 try:
     while True:
-        # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
-        pwm_led1 = Reg1.get_value()
-        pwm_led2 = Reg2.get_value()
-        digital1 = Reg3.get_value()
-        digital2 = Reg6.get_value()
+        try:
+            # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
+            pwm_led1 = Reg1.get_value()
+            pwm_led2 = Reg2.get_value()
+            digital1 = Reg3.get_value()
+            digital2 = Reg6.get_value()
 
-        # Escribir PWM_LED1 (registro 1)
-        escribir_valor_modbus(1, int(pwm_led1))
-        # Escribir PWM_LED2 (registro 2)
-        escribir_valor_modbus(2, int(pwm_led2))
-        # Escribir Digital1 (registro 3)
-        escribir_valor_modbus(3, int(digital1))
-        # Escribir Digital2 (registro 6)
-        escribir_valor_modbus(6, int(digital2))
+            # Escribir PWM_LED1 (registro 1)
+            escribir_valor_modbus(1, int(pwm_led1))
+            # Escribir PWM_LED2 (registro 2)
+            escribir_valor_modbus(2, int(pwm_led2))
+            # Escribir Digital1 (registro 3)
+            escribir_valor_modbus(3, int(digital1))
+            # Escribir Digital2 (registro 6)
+            escribir_valor_modbus(6, int(digital2))
 
-        # 2. Leer sensores desde MODBUS y actualizar OPC UA (Luz, Pote, NC1, NC2)
-        r4 = leer_entrada(4);  Registro4 = r4 if r4 is not None else Registro4
-        r5 = leer_entrada(5);  Registro5 = r5 if r5 is not None else Registro5
-        r7 = leer_entrada(7);  Registro7 = r7 if r7 is not None else Registro7
-        r8 = leer_entrada(8);  Registro8 = r8 if r8 is not None else Registro8
+            # 2. Leer sensores desde MODBUS y actualizar OPC UA (Luz, Pote, NC1, NC2)
+            r4 = leer_entrada(4);  Registro4 = r4 if r4 is not None else Registro4
+            r5 = leer_entrada(5);  Registro5 = r5 if r5 is not None else Registro5
+            r7 = leer_entrada(7);  Registro7 = r7 if r7 is not None else Registro7
+            r8 = leer_entrada(8);  Registro8 = r8 if r8 is not None else Registro8
 
-        Reg4.set_value(Registro4)
-        Reg5.set_value(Registro5)
-        Reg7.set_value(Registro7)
-        Reg8.set_value(Registro8)
+            Reg4.set_value(Registro4)
+            Reg5.set_value(Registro5)
+            Reg7.set_value(Registro7)
+            Reg8.set_value(Registro8)
 
-        Hora.set_value(datetime.datetime.now())
+            Hora.set_value(datetime.datetime.now())
 
-        # Mostrar en consola para monitoreo
-        print(f"[{datetime.datetime.now()}] Publicando:")
-        print(f"  PWM LED1: {pwm_led1} | PWM LED2: {pwm_led2}")
-        print(f"  Digital1: {digital1} | Digital2: {digital2}")
-        print(f"  Luz: {Registro4} | Pote: {Registro5}")
-        print(f"  NC1: {Registro7} | NC2: {Registro8}")
-        print()
-        # Publicar estado conectado MODBUS en cada ciclo
-        if mqtt_status:
-            status_payload = json.dumps({"connected": True})
-            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+            # Mostrar en consola para monitoreo
+            print(f"[{datetime.datetime.now()}] Publicando:")
+            print(f"  PWM LED1: {pwm_led1} | PWM LED2: {pwm_led2}")
+            print(f"  Digital1: {digital1} | Digital2: {digital2}")
+            print(f"  Luz: {Registro4} | Pote: {Registro5}")
+            print(f"  NC1: {Registro7} | NC2: {Registro8}")
+            print()
+            # Publicar estado conectado MODBUS en cada ciclo
+            if mqtt_status:
+                status_payload = json.dumps({"connected": True})
+                client_mqtt.publish("modbus/plc/status/modbus", status_payload)
 
-            # Publicar estados de Salida Digital 1 y 2 en MQTT para la web
-            try:
-                print(f"  Publicando Salida Digital 1: {digital1}")
-                payload1 = json.dumps({"value": bool(digital1)})
-                client_mqtt.publish("modbus/plc/outputs/1", payload1)
-            except Exception as e:
-                print(f"[ERROR] Publicando Salida Digital 1: {e}")
-                error_payload = json.dumps({"connected": False, "error": f"Salida Digital 1 error: {e}"})
-                client_mqtt.publish("modbus/plc/status/outputs/1", error_payload)
+                # Publicar estados de Salida Digital 1 y 2 en MQTT para la web
+                try:
+                    print(f"  Publicando Salida Digital 1: {digital1}")
+                    payload1 = json.dumps({"value": bool(digital1)})
+                    client_mqtt.publish("modbus/plc/outputs/1", payload1)
+                except Exception as e:
+                    print(f"[ERROR] Publicando Salida Digital 1: {e}")
+                    error_payload = json.dumps({"connected": False, "error": f"Salida Digital 1 error: {e}"})
+                    client_mqtt.publish("modbus/plc/status/outputs/1", error_payload)
 
-            try:
-                print(f"  Publicando Salida Digital 2: {digital2}")
-                payload2 = json.dumps({"value": bool(digital2)})
-                client_mqtt.publish("modbus/plc/outputs/2", payload2)
-            except Exception as e:
-                print(f"[ERROR] Publicando Salida Digital 2: {e}")
-                error_payload = json.dumps({"connected": False, "error": f"Salida Digital 2 error: {e}"})
-                client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
-        # Esperar un poco antes de la próxima iteración
-        time.sleep(2)
+                try:
+                    print(f"  Publicando Salida Digital 2: {digital2}")
+                    payload2 = json.dumps({"value": bool(digital2)})
+                    client_mqtt.publish("modbus/plc/outputs/2", payload2)
+                except Exception as e:
+                    print(f"[ERROR] Publicando Salida Digital 2: {e}")
+                    error_payload = json.dumps({"connected": False, "error": f"Salida Digital 2 error: {e}"})
+                    client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
+            # Esperar un poco antes de la próxima iteración
+            time.sleep(2)
+        except serial.serialutil.SerialException as se:
+            print(f"[ERROR] SerialException: {se}")
+            # Publicar desconexión MODBUS en MQTT
+            if mqtt_status:
+                status_payload = json.dumps({"connected": False, "error": f"MODBUS desconectado: {se}"})
+                client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+            # Opcional: mantener el servidor OPC UA activo o salir del bucle
+            break
 except KeyboardInterrupt:
     print("\n🛑 Finalizando programa por interrupción del usuario.")
     print("⛔ Servidor detenido por el usuario.")

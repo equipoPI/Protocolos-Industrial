@@ -224,11 +224,14 @@ except KeyboardInterrupt:
 # Al finalizar, se cierra la conexión con el servidor OPC UA de forma segura
 finally:
     try:
-        client_opcua.disconnect()
-        print("?? Desconectado del servidor OPC UA")
         # Publicar desconexión OPC UA en MQTT
         if mqtt_status:
             status_payload = json.dumps({"connected": False, "error": "Servidor OPC UA desconectado"})
             client_mqtt.publish("modbus/plc/status/opc", status_payload)
+            # Publicar desconexión MQTT en la web
+            status_payload_mqtt = json.dumps({"connected": False, "error": "Cliente MQTT desconectado"})
+            client_mqtt.publish("modbus/plc/status/mqtt", status_payload_mqtt)
+        client_opcua.disconnect()
+        print("?? Desconectado del servidor OPC UA")
     except Exception as e:
         print(f"[ERROR] Al desconectar OPC UA: {e}")
