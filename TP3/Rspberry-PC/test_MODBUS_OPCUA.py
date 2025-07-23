@@ -7,7 +7,6 @@ import datetime
 import time
 import serial
 import struct
-import paho.mqtt.client as mqtt
 import json
 
 # ======================================================
@@ -45,6 +44,10 @@ Reg8 = Parametros.add_variable(addspace, "Registro8_NC2", 0)       # Entrada dig
 
 # Variable para guardar la hora de la última actualización
 Hora = Parametros.add_variable(addspace, "Hora", datetime.datetime.now())
+Hora.set_writable()
+
+# Variable para guardar la hora de la última actualización
+EMOD = Parametros.add_variable(addspace, "EMOD", datetime.datetime.now())
 Hora.set_writable()
 
 # Hacer todas las variables principales escribibles desde el cliente OPC UA
@@ -94,6 +97,7 @@ def calc_crc(data):
 puerto = '/dev/ttyACM0'  # Cambia si usás otro puerto (ver con ls /dev/tty*)
 baudrate = 9600
 ser = serial.Serial(puerto, baudrate=baudrate, bytesize=8, parity='N', stopbits=1, timeout=1)
+modbus_conectado = True
 time.sleep(3)  # Espera a que se estabilice la conexión tras abrir el puerto
 
 
@@ -252,18 +256,26 @@ try:
             # Escribir Digital2 (registro 6)
             escribir_valor_modbus(6, int(digital2))
 
-            # 2. Leer sensores desde MODBUS y actualizar OPC UA (Luz, Pote, NC1, NC2)
-            r4 = leer_entrada(4);  Registro4 = r4 if r4 is not None else Registro4
-            r5 = leer_entrada(5);  Registro5 = r5 if r5 is not None else Registro5
-            r7 = leer_entrada(7);  Registro7 = r7 if r7 is not None else Registro7
-            r8 = leer_entrada(8);  Registro8 = r8 if r8 is not None else Registro8
+            # 2. Leer sensores y salidas digitales desde MODBUS y actualizar OPC UA
+            r3 = leer_entrada(3);  Registro3 = r3 if r3 is not None else Registro3  # Salida digital 1
+            r4 = leer_entrada(4);  Registro4 = r4 if r4 is not None else Registro4  # Luz
+            r5 = leer_entrada(5);  Registro5 = r5 if r5 is not None else Registro5  # Pote
+            r6 = leer_entrada(6);  Registro6 = r6 if r6 is not None else Registro6  # Salida digital 2
+            r7 = leer_entrada(7);  Registro7 = r7 if r7 is not None else Registro7  # NC1
+            r8 = leer_entrada(8);  Registro8 = r8 if r8 is not None else Registro8  # NC2
 
-            Reg4.set_value(Registro4)
-            Reg5.set_value(Registro5)
-            Reg7.set_value(Registro7)
-            Reg8.set_value(Registro8)
-
-            Hora.set_value(datetime.datetime.now())
+            Reg3.set_value(Registro3)  # Salida digital 1
+            Reg4.set_value(Registro4)  # Luz
+            Reg5.set_value(Registro5)  # Pote
+            Reg6.set_value(Registro6)  # Salida digital 2
+            Reg7.set_value(Registro7)  # NC1
+            Reg8.set_value(Registro8)  # NC2
+            # Actualizar la hora de la última actualización 
+            hora_OPCUA = datetime.datetime.now()
+            Hora.set_value(hora_OPCUA)
+            print(f"  Hora enviada por OPC UA: {hora_OPCUA}")
+            # Estado de coneccion de comunicacion MODBUS
+            EMOD.set_value(modbus_conectado)
 
             # Mostrar en consola para monitoreo
             print(f"[{datetime.datetime.now()}] Actualizando OPC UA:")
@@ -273,6 +285,7 @@ try:
             print(f"  NC1: {Registro7} | NC2: {Registro8}")
             print()
             time.sleep(2)
+
         except serial.serialutil.SerialException as se:
             print(f"[ERROR] SerialException: {se}")
             modbus_conectado = False
@@ -290,7 +303,7 @@ try:
                     modbus_conectado = True
                 except Exception as e:
                     print(f"No se pudo reconectar: {e}")
-                    time.sleep(5)
+                    time.sleep(2)
 
 except KeyboardInterrupt:
     print("\n🛑 Finalizando programa por interrupción del usuario.")

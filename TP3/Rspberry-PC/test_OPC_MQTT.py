@@ -133,7 +133,8 @@ nodos = {
     "Digital2": client_opcua.get_node("ns=2;i=7"),   # Salida digital 2
     "NC1":      client_opcua.get_node("ns=2;i=8"),   # Entrada digital 1
     "NC2":      client_opcua.get_node("ns=2;i=9"),   # Entrada digital 2
-    "Hora":     client_opcua.get_node("ns=2;i=10")   # Hora actual
+    "Hora":     client_opcua.get_node("ns=2;i=10"),  # Hora actualizacion opcua
+    "EMOD":     client_opcua.get_node("ns=2;i=11")   # Estado de la coneccion modbus
 }
 
 
@@ -142,13 +143,21 @@ nodos = {
 # En este loop se publican los datos de sensores y entradas digitales a MQTT,
 # y se procesan los comandos recibidos desde la web para actualizar los nodos OPC UA.
 try:
+
     while True:
+        # Intentar reconectar OPC UA si está desconectado
         if not opc_status:
-            print("[ERROR] OPC UA no disponible. Publicando estado en MQTT...")
-            if mqtt_status:
-                status_payload = json.dumps({"connected": False, "error": "OPC UA no disponible"})
-                client_mqtt.publish("topicos/status/opc", status_payload)
-            time.sleep(2)
+            print("[ERROR] OPC UA no disponible. Intentando reconectar...")
+            try:
+                client_opcua.connect()
+                opc_status = True
+                print("¡Reconectado al servidor OPC UA!")
+            except Exception as e:
+                print(f"[ERROR] Falló la reconexión OPC UA: {e}")
+                if mqtt_status:
+                    status_payload = json.dumps({"connected": False, "error": "OPC UA no disponible"})
+                    client_mqtt.publish("topicos/status/opc", status_payload)
+                time.sleep(5)
             continue
         if not mqtt_status:
             print("[ERROR] MQTT no disponible. No se puede publicar datos.")
@@ -202,9 +211,13 @@ try:
             client_mqtt.publish("modbus/plc/status/outputs/2", error_payload)
 
         # Publicar estado de MODbus (status/modbus) en MQTT
-        modbus_status = True  # Suponemos que si el script está corriendo, MODbus está conectado
-        status_payload = json.dumps({"connected": modbus_status})
-        client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+        try:
+            modbus_status = nodos["EMOD"].get_value()
+            print(f"  Estado MODBUS OPC UA (EMOD): {modbus_status}")
+            status_payload = json.dumps({"connected": bool(modbus_status)})
+            client_mqtt.publish("modbus/plc/status/modbus", status_payload)
+        except Exception as e:
+            print(f"[ERROR] Leyendo EMOD OPC UA: {e}")
 
         # Publicar estado de OPC UA (status/opc) en MQTT
         status_payload = json.dumps({"connected": opc_status})
