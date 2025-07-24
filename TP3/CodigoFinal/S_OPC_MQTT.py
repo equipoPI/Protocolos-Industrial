@@ -51,7 +51,7 @@ def on_message(client, userdata, msg):
         # Procesa comandos para salidas digitales
         if topic.startswith("modbus/plc/control/digital/"):
             salida = topic.split("/")[-1]
-            valor = bool(data.get("value", False))
+            valor = 1 if data.get("value", False) else 0  # Estado como 0 o 1
             # Mapear salida 1 -> Digital1, salida 2 -> Digital2
             if salida == "1":
                 nodo = nodos.get("Digital1")
@@ -204,7 +204,7 @@ try:
         try:
             salida1 = nodos["Digital1"].get_value()
             print(f"  Salida Digital 1: {salida1}")
-            payload1 = json.dumps({"value": bool(salida1)})
+            payload1 = json.dumps({"value": int(salida1)})  # Estado como 0 o 1
             client_mqtt.publish("modbus/plc/outputs/1", payload1)
         except Exception as e:
             print(f"[ERROR] Leyendo Salida Digital 1: {e}")
@@ -220,7 +220,7 @@ try:
         try:
             salida2 = nodos["Digital2"].get_value()
             print(f"  Salida Digital 2: {salida2}")
-            payload2 = json.dumps({"value": bool(salida2)})
+            payload2 = json.dumps({"value": int(salida2)})  # Estado como 0 o 1
             client_mqtt.publish("modbus/plc/outputs/2", payload2)
         except Exception as e:
             print(f"[ERROR] Leyendo Salida Digital 2: {e}")

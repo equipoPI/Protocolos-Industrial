@@ -241,33 +241,37 @@ try:
     while True:
         try:
             modbus_conectado = True
-            # 1. Recibir comandos desde OPC UA y escribirlos en MODBUS (PWM y Digitales)
+            # PWM y Digitales: recibir, escribir, leer y actualizar
             pwm_led1 = Reg1.get_value()
             pwm_led2 = Reg2.get_value()
-            digital1 = Reg3.get_value()
-            digital2 = Reg6.get_value()
 
-            # Escribir PWM_LED1 (registro 1)
+            # --- Digital1 (registro 3) ---
+            digital1 = Reg3.get_value()  # Recibir desde OPC UA
+            escribir_valor_modbus(3, int(digital1))  # Escribir por MODBUS
+            r3 = leer_entrada(3)  # Leer por MODBUS
+            Registro3 = r3 if r3 is not None else Registro3
+            Reg3.set_value(Registro3)  # Actualizar OPC UA
+
+            # --- Digital2 (registro 6) ---
+            digital2 = Reg6.get_value()  # Recibir desde OPC UA
+            escribir_valor_modbus(6, int(digital2))  # Escribir por MODBUS
+            r6 = leer_entrada(6)  # Leer por MODBUS
+            Registro6 = r6 if r6 is not None else Registro6
+            Reg6.set_value(Registro6)  # Actualizar OPC UA
+
+            # PWM LED1 (registro 1)
             escribir_valor_modbus(1, int(pwm_led1))
-            # Escribir PWM_LED2 (registro 2)
+            # PWM LED2 (registro 2)
             escribir_valor_modbus(2, int(pwm_led2))
-            # Escribir Digital1 (registro 3)
-            escribir_valor_modbus(3, int(digital1))
-            # Escribir Digital2 (registro 6)
-            escribir_valor_modbus(6, int(digital2))
 
-            # 2. Leer sensores y salidas digitales desde MODBUS y actualizar OPC UA
-            r3 = leer_entrada(3);  Registro3 = r3 if r3 is not None else Registro3  # Salida digital 1
+            # Sensores y entradas restantes
             r4 = leer_entrada(4);  Registro4 = r4 if r4 is not None else Registro4  # Luz
             r5 = leer_entrada(5);  Registro5 = r5 if r5 is not None else Registro5  # Pote
-            r6 = leer_entrada(6);  Registro6 = r6 if r6 is not None else Registro6  # Salida digital 2
             r7 = leer_entrada(7);  Registro7 = r7 if r7 is not None else Registro7  # NC1
             r8 = leer_entrada(8);  Registro8 = r8 if r8 is not None else Registro8  # NC2
 
-            Reg3.set_value(Registro3)  # Salida digital 1
             Reg4.set_value(Registro4)  # Luz
             Reg5.set_value(Registro5)  # Pote
-            Reg6.set_value(Registro6)  # Salida digital 2
             Reg7.set_value(Registro7)  # NC1
             Reg8.set_value(Registro8)  # NC2
             # Actualizar la hora de la última actualización 
