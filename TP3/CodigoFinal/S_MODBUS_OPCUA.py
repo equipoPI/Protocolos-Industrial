@@ -247,17 +247,19 @@ try:
 
             # --- Digital1 (registro 3) ---
             digital1 = Reg3.get_value()  # Recibir desde OPC UA
-            escribir_valor_modbus(3, int(digital1))  # Escribir por MODBUS
-            r3 = leer_entrada(3)  # Leer por MODBUS
-            Registro3 = r3 if r3 is not None else Registro3
-            Reg3.set_value(Registro3)  # Actualizar OPC UA
+            if int(digital1) != Registro3:
+                escribir_valor_modbus(3, int(digital1))  # Escribir por MODBUS solo si cambió
+                r3 = leer_entrada(3)  # Leer por MODBUS
+                Registro3 = r3 if r3 is not None else Registro3
+                Reg3.set_value(Registro3)  # Actualizar OPC UA
 
             # --- Digital2 (registro 6) ---
             digital2 = Reg6.get_value()  # Recibir desde OPC UA
-            escribir_valor_modbus(6, int(digital2))  # Escribir por MODBUS
-            r6 = leer_entrada(6)  # Leer por MODBUS
-            Registro6 = r6 if r6 is not None else Registro6
-            Reg6.set_value(Registro6)  # Actualizar OPC UA
+            if int(digital2) != Registro6:
+                escribir_valor_modbus(6, int(digital2))  # Escribir por MODBUS solo si cambió
+                r6 = leer_entrada(6)  # Leer por MODBUS
+                Registro6 = r6 if r6 is not None else Registro6
+                Reg6.set_value(Registro6)  # Actualizar OPC UA
 
             # PWM LED1 (registro 1)
             escribir_valor_modbus(1, int(pwm_led1))
@@ -288,7 +290,7 @@ try:
             print(f"  Luz: {Registro4} | Pote: {Registro5}")
             print(f"  NC1: {Registro7} | NC2: {Registro8}")
             print()
-            time.sleep(2)
+            
 
         except serial.serialutil.SerialException as se:
             print(f"[ERROR] SerialException: {se}")
