@@ -616,8 +616,10 @@
         function handleStatusData(statusType, data) {
             switch(statusType) {
                 case 'modbus':
+                    // Actualiza el indicador visual de MODBUS inmediatamente según el estado recibido
                     updateConnectionStatus('modbus', data.connected ? 'connected' : 'error', 
                                          data.connected ? 'MODbus: Conectado' : (data.error ? 'MODbus: ' + data.error : 'MODbus: Error'));
+                    // Actualiza timestamp de datos recientes MODBUS
                     lastDataReceived['modbus'] = Date.now();
                     break;
                 case 'opc':
@@ -627,9 +629,6 @@
                     // Si OPC UA se desconecta, fuerza MODBUS a desconectado visualmente
                     if (!data.connected) {
                         updateConnectionStatus('modbus', 'error', 'MODbus: Desconectado (OPC UA caído)');
-                    } else {
-                        // Si OPC se conecta, también poner MQTT en verde y conectado
-                        updateConnectionStatus('mqtt', 'connected', 'Conectado a MQTT');
                     }
                     break;
                 case 'mqtt':
@@ -745,11 +744,8 @@
             const mqttIsConnected = mqttStatusLight && mqttStatusLight.className.includes('connected');
             if (mqttIsConnected && modbusTimeout && opcTimeout) {
                 updateConnectionStatus('mqtt', 'error', 'MQTT: Sin datos de scripts');
-            } else if (mqttIsConnected && !modbusTimeout && !opcTimeout) {
-                // Si MODbus y OPC están activos y MQTT está conectado, poner MQTT en verde
-                updateConnectionStatus('mqtt', 'connected', 'Conectado a MQTT');
             }
-        }, 5000); // Cada 5 segundo
+        }, 1000); // Cada 1 segundo
 
         // Inicialización
         window.onload = function() {
