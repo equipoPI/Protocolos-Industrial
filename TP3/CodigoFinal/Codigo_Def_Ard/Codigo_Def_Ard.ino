@@ -303,9 +303,12 @@ void loop() {
   delay(100);
   lecturaLUZ = analogRead(Luz);
   lecturaPote = analogRead(Pote);
+
+  int salidaPWM1 = map(valorPWMOUT1, 0, 100, 0, 255);
+  int salidaPWM2 = map(valorPWMOUT2, 0, 100, 0, 255);
   
-  analogWrite(LED1PWM,valorPWMOUT1);
-  analogWrite(LED2PWM,valorPWMOUT2);
+  analogWrite(LED1PWM,salidaPWM1);
+  analogWrite(LED2PWM,salidaPWM2);
 
   digitalWrite(LED1,valorDigital);
   digitalWrite(LED2,valorDigital2);
